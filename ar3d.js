@@ -9,16 +9,12 @@
 //            ogni creatura porta la propria luce (occhi, crepe, fiamme) che la illumina da dentro.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const PAL = { ink: 0x0B0A0F, bone: 0xE8DCC4, ember: 0xD9A441, blood: 0xB3202A, spectral: 0x6FD3E0,
   slate: 0x2A3346, moon: 0xCFE0FF, earth: 0x2A1E18, sky: 0x6C7FA6 };
 const D2R = Math.PI / 180;
 const GROUND_Y = -1.45;      // il telefono è tenuto a ~1,45 m dal suolo
-const DIST = 4.6;            // distanza del mostro dalla camera (m)
+const DIST = 3.6;            // distanza del mostro dalla camera (m)
 
 // ---------------------------------------------------------------- rumore
 const perm = new Uint8Array(512);
@@ -448,40 +444,38 @@ const BUILDERS = { spettro: buildSpettro, ragno: buildRagno, demone: buildDemone
 let R = null;
 function init() {
   if (R) return R;
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }); renderer.setClearColor(0x000000, 0); renderer.autoClear = false;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  const el = renderer.domElement; el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+  const el = renderer.domElement; el.id = 'gl3d'; el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:30';
   const scene = new THREE.Scene();
   const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .35;
   const camera = new THREE.PerspectiveCamera(62, 1, .05, 120); scene.add(camera);
   const hemi = new THREE.HemisphereLight(PAL.sky, PAL.earth, .9); scene.add(hemi);
   const key = new THREE.DirectionalLight(PAL.moon, 1.7); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
   Object.assign(key.shadow.camera, { left: -4, right: 4, top: 5, bottom: -4, near: .5, far: 20 }); key.shadow.bias = -.0006; key.shadow.normalBias = .02; key.shadow.radius = 5;
-  scene.add(key); scene.add(key.target);
-  const back = new THREE.DirectionalLight(0xFFB070, .7); scene.add(back); scene.add(back.target);
+  scene.add(key); scene.add(key.target); hemi.layers.enableAll(); key.layers.enableAll();
+  const back = new THREE.DirectionalLight(0xFFB070, .7); scene.add(back); scene.add(back.target); back.layers.enableAll();
   // suolo: riceve solo ombre (sopra il video) + ombra di contatto morbida
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: .55, color: 0x05040A })); ground.rotation.x = -Math.PI / 2; ground.position.y = GROUND_Y; ground.receiveShadow = true; scene.add(ground);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: .55, color: 0x05040A })); ground.rotation.x = -Math.PI / 2; ground.position.y = GROUND_Y; ground.receiveShadow = true; ground.layers.set(1); scene.add(ground);
   const blobT = canvasTex(128, 128, (g, w) => { const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(0,0,0,.85)'); r.addColorStop(.5, 'rgba(0,0,0,.4)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
-  const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.renderOrder = 1; scene.add(blob);
+  const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.renderOrder = 1; blob.layers.set(1); scene.add(blob);
   // terreno finto quando manca la fotocamera
   const fakeTex = texSet(256, (x, y) => { const n = tn(x, y, 14, 5), m = tn(x + .4, y, 5, 3); return { c: mix(mix(hex(0x14120E), hex(0x3A3428), sat(.5 + n)), hex(0x1E2A16), sat(m * 2)), r: .95, h: n }; }, { bump: 3 });
   fakeTex.map.repeat.set(10, 10); fakeTex.normalMap.repeat.set(10, 10); fakeTex.roughnessMap.repeat.set(10, 10);
-  const fakeGround = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ ...fakeTex, emissiveMap: null })); fakeGround.rotation.x = -Math.PI / 2; fakeGround.position.y = GROUND_Y - .002; fakeGround.receiveShadow = true; scene.add(fakeGround);
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-  composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), .6, .55, 1.0); composer.addPass(bloom); composer.addPass(new OutputPass());
-  R = { renderer, el, scene, camera, key, back, hemi, ground, blob, fakeGround, composer, bloom, video: null, vtex: null, mon: null, cache: {}, w: 0, h: 0, t0: performance.now(), raycaster: new THREE.Raycaster(), shake: 0 };
+  const fakeGround = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ ...fakeTex, emissiveMap: null })); fakeGround.rotation.x = -Math.PI / 2; fakeGround.position.y = GROUND_Y - .002; fakeGround.receiveShadow = true; fakeGround.layers.set(1); scene.add(fakeGround);
+  const composer = null, bloom = null;
+  R = { inset: 14, renderer, el, scene, camera, key, back, hemi, ground, blob, fakeGround, composer, bloom, video: null, vtex: null, mon: null, cache: {}, w: 0, h: 0, t0: performance.now(), raycaster: new THREE.Raycaster(), shake: 0 };
   return R;
 }
-function resize(w, h) { if (R.w === w && R.h === h) return; R.w = w; R.h = h; R.renderer.setSize(w, h, false); R.composer.setSize(w, h);
-  R.bloom.resolution.set(w / 2, h / 2); R.camera.aspect = w / h; R.camera.updateProjectionMatrix(); }
+function resize(w, h) { if (R.w === w && R.h === h) return; R.w = w; R.h = h; R.renderer.setSize(w, h, false); R.camera.aspect = w / h; R.camera.updateProjectionMatrix(); }
 function setVideo(video) {
   R.video = video || null;
   if (R.vtex) { R.vtex.dispose(); R.vtex = null; }
-  if (video) { R.vtex = new THREE.VideoTexture(video); R.vtex.colorSpace = THREE.SRGBColorSpace; R.scene.background = R.vtex; R.scene.fog = null; R.fakeGround.visible = false; }
-  else { R.scene.background = new THREE.Color(0x07080D); R.scene.fog = new THREE.FogExp2(0x0B0C14, .07); R.fakeGround.visible = true; }
+  R.scene.background = null;
+  if (video) { R.scene.fog = null; R.fakeGround.visible = false; }
+  else { R.scene.fog = new THREE.FogExp2(0x0B0C14, .07); R.fakeGround.visible = true; }
 }
 function coverVideo() { // la texture del video copre lo schermo come object-fit: cover
   const v = R.video; if (!v || !v.videoWidth) return; const va = v.videoWidth / v.videoHeight, sa = R.w / R.h, t = R.vtex;
@@ -500,14 +494,16 @@ const v3 = new THREE.Vector3();
 export const AR3D = {
   ok: true,
   start(container, type, opts = {}) {
-    init(); container.insertBefore(R.el, opts.before || container.firstChild);
+    init(); container.appendChild(R.el); if (opts.inset != null) R.inset = opts.inset;
     if (R.mon) R.scene.remove(R.mon.root);
     if (!R.cache[type]) R.cache[type] = BUILDERS[type]();
     const M = R.mon = R.cache[type]; M.u.dissolve.value = 1; M.u.flash.value = 0; M.spawn = 0; M.dying = 0; M.dieT = 0; M.drop = 0; M.recoil = 0;
-    R.scene.add(M.root); setVideo(opts.video || null); R.t0 = performance.now(); R.el.style.display = 'block';
+    M.hidden = !!opts.hidden; M.amb = 0; M.root.visible = !M.hidden; if (M.hidden) { M.spawn = 1; M.u.dissolve.value = 0; }
+    R.scene.add(M.root); setVideo(opts.video || null); try { R.renderer.compile(R.scene, R.camera); } catch (e) {} R.t0 = performance.now(); R.el.style.display = 'block';
   },
   setVideo(v) { if (R) setVideo(v); },
   stop() { if (!R) return; if (R.mon) R.scene.remove(R.mon.root); R.mon = null; R.el.style.display = 'none'; setVideo(null); },
+  ambush() { if (R && R.mon) { const M = R.mon; M.hidden = false; M.root.visible = true; M.amb = -1; M.u.dissolve.value = 0; M.u.flash.value = .8; } },
   hit() { if (R && R.mon) { R.mon.u.flash.value = .9; R.mon.recoil = 1; } },
   shake(a = 1) { if (R) R.shake = Math.max(R.shake, a); },
   die() { if (R && R.mon) R.mon.dying = .0001; },
@@ -516,26 +512,36 @@ export const AR3D = {
     if (!R || !R.mon) return null; const c = R.el.parentNode; const w = c.clientWidth, h = c.clientHeight; resize(w, h);
     const M = R.mon, t = (now - R.t0) / 1000;
     R.ema = R.ema == null ? dt : R.ema * .95 + dt * .05;
-    if (!R.low && t > 3 && R.ema > .045) { R.low = true; R.renderer.setPixelRatio(1); R.bloom.enabled = false; R.key.shadow.radius = 2; R.w = 0; }
+    if (!R.low && t > 3 && R.ema > .045) { R.low = true; R.renderer.setPixelRatio(1); R.key.shadow.radius = 2; R.w = 0; }
     orientCamera(o);
     if (R.shake > 0) { R.camera.rotateZ((Math.random() - .5) * .03 * R.shake); R.camera.rotateX((Math.random() - .5) * .03 * R.shake); R.shake = Math.max(0, R.shake - dt * 3); }
+    if (M.amb === -1) M.amb = t; let near = 0;
+    if (M.amb > 0) { const k = t - M.amb; if (k < .16) near = 1 - (1 - k / .16) * .35; else if (k < .95) near = 1; else if (k < 1.8) { const e = (k - .95) / .85; near = 1 - e * e * (3 - 2 * e); } else M.amb = 0;
+      if (k < .95) R.shake = Math.max(R.shake, 1.2); }
     // posizione nel mondo: direzione della bussola di gioco, distanza fissa, a terra
-    const d = DIST * (M.scaleDist || 1), br = o.br * D2R; const dx = Math.sin(br), dz = -Math.cos(br);
+    const d = lerp(DIST * (M.scaleDist || 1), 1.25 * (M.scaleDist ? 1.4 : 1), near), br = o.br * D2R; const dx = Math.sin(br), dz = -Math.cos(br);
     M.recoil = Math.max(0, M.recoil - dt * 4); const back = M.recoil * .25;
     M.root.position.set(dx * (d + back), GROUND_Y, dz * (d + back)); M.root.lookAt(0, GROUND_Y, 0);
     // entrata, colpi, morte
     if (M.spawn < 1) { M.spawn = Math.min(1, t / 1.2); M.u.dissolve.value = 1 - M.spawn; }
+
     if (M.dying > 0) { if (!M.dieT) M.dieT = t; M.dying = (t - M.dieT) / 1.3 + .0001; M.u.dissolve.value = Math.min(1, M.dying); }
     M.u.flash.value = Math.max(0, M.u.flash.value - dt * 4);
-    M.update(t, dt, { wind: o.wind ? 1 : 0, lunge: o.lunge || 0, phase: o.phase || 1, camera: R.camera });
+    M.update(t, dt, { wind: o.wind || near > .5 ? 1 : 0, lunge: Math.max(o.lunge || 0, near), phase: o.phase || 1, camera: R.camera });
     M.root.scale.setScalar(1 - M.recoil * .04);
     // luci che seguono il mostro
     const mp = M.root.position; R.key.position.set(mp.x - 3 * dz - 1.5 * dx, 7, mp.z + 3 * dx - 1.5 * dz); R.key.target.position.copy(mp);
     R.back.position.set(mp.x + dx * 6, 3, mp.z + dz * 6); R.back.target.position.copy(mp);
     R.blob.position.set(mp.x, GROUND_Y + .003, mp.z); const bs = M.radius * 2.6 * (1 - Math.min(1, M.hover / 6)); R.blob.scale.set(bs, bs, 1); R.blob.material.opacity = (1 - M.u.dissolve.value) * (M.hover > 1 ? .55 : .9);
     R.ground.position.set(mp.x, GROUND_Y, mp.z);
-    if (R.video) coverVideo();
-    R.composer.render();
+    // effetto "fuori dalla cornice": il terreno resta dentro la cornice, il mostro la oltrepassa
+    const r = R.renderer, ins = R.inset;
+    r.setScissorTest(false); r.clear(true, true, true);
+    R.camera.layers.enableAll(); r.shadowMap.autoUpdate = true; r.setScissorTest(true); r.setScissor(0, 0, 1, 1); r.render(R.scene, R.camera);
+    r.setScissorTest(false); r.clear(true, true, true); r.shadowMap.autoUpdate = false;
+    const gb = Math.max(ins, o.groundBottom || 0); r.setScissorTest(true); r.setScissor(ins, gb, w - 2 * ins, h - ins - gb); R.camera.layers.set(1); r.render(R.scene, R.camera);
+    r.setScissorTest(false); r.clearDepth(); R.camera.layers.set(0); r.render(R.scene, R.camera);
+    R.camera.layers.enableAll(); r.shadowMap.autoUpdate = true;
     // proiezione per l'HUD 2D
     v3.set(0, M.center + (M.body.position.y || 0) * 0, 0); M.root.localToWorld(v3); const world = v3.clone();
     const camSpace = world.clone().applyMatrix4(R.camera.matrixWorldInverse); const ahead = camSpace.z < 0;

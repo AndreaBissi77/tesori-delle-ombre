@@ -3,3 +3,5 @@
 Gioco di caccia al tesoro in realtà aumentata: GPS, bussola e giroscopio per trovare tesori custoditi da mostri e un Boss.
 
 Gioca: https://andreabissi77.github.io/tesori-delle-ombre/
+
+Dati dei luoghi © OpenStreetMap contributors (Overpass API). Mappa © CARTO. Three.js e Leaflet con licenza MIT (vedi lib/).
