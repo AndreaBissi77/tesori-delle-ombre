@@ -72,6 +72,7 @@ input[type=range]{width:100%}
 #map{display:none;position:absolute;inset:6px 10px;border-radius:18px;overflow:hidden;border:1px solid #3a2d14}
 #map.on{display:block}
 .leaflet-container{background:#0b0a0f !important;font-family:inherit}
+.darkmap{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
 .mk{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 0 6px rgba(233,196,106,.9))}
 .mk.boss{filter:drop-shadow(0 0 8px rgba(255,40,40,.95))}.mk.shop{filter:drop-shadow(0 0 7px rgba(190,120,255,.95))}.mk.item{font-size:18px;filter:drop-shadow(0 0 6px rgba(150,220,255,.95))}
 .pmk{width:34px;height:34px}.pmk i{position:absolute;left:9px;top:2px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:24px solid #f1e6cf;filter:drop-shadow(0 0 6px #6fd3e0)}
@@ -961,7 +962,8 @@ async function toggleMap(){
   if(on){try{await loadLeaflet();}catch(e){toast('Mappa non disponibile qui');return;}
     $('#map').classList.add('on');$('#radar').style.visibility='hidden';
     if(!MAP){const m=L.map('map',{zoomControl:false,attributionControl:true}).setView([pos.lat,pos.lon],17);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(m);
+      let tErr=0;const tl=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'darkmap',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(m);
+      tl.on('tileerror',()=>{if(++tErr===6)toast('Mappa non disponibile qui');});
       MAP={m,player:null,marks:{},follow:true,drag:0};m.on('dragstart',()=>{MAP.follow=false;MAP.drag=Date.now();});}
     setTimeout(()=>{MAP.m.invalidateSize();updateMap();},60);
   }else{$('#map').classList.remove('on');$('#radar').style.visibility='';}

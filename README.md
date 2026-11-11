@@ -4,4 +4,4 @@ Gioco di caccia al tesoro in realtà aumentata: GPS, bussola e giroscopio per tr
 
 Gioca: https://andreabissi77.github.io/tesori-delle-ombre/
 
-Dati dei luoghi © OpenStreetMap contributors (Overpass API). Mappa © CARTO. Three.js e Leaflet con licenza MIT (vedi lib/).
+Dati dei luoghi © OpenStreetMap contributors (Overpass API). Mappa © OpenStreetMap. Three.js e Leaflet con licenza MIT (vedi lib/).
