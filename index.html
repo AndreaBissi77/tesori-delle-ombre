@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Tesori delle Ombre</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tesori">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js","three/addons/":"./lib/addons/"}}</script>
 <script type="module" src="./ar3d.js"></script>
 <script src="./i18n.js"></script>
@@ -88,6 +95,7 @@ input[type=range]{width:100%}
   <button class="btn" id="bReal">🧭 Gioca con GPS e bussola</button>
   <button class="btn alt" id="bDemo">🎮 Modalità prova (cammina con i tasti)</button>
   <div id="langs" role="group" aria-label="Lingua"><button data-lang="it">🇮🇹 Italiano</button><button data-lang="es">🇪🇸 Español</button><button data-lang="en">🇬🇧 English</button></div>
+  <button class="btn alt" id="bFull">⛶ Schermo intero</button>
   <button class="btn alt" id="bDiag">🔧 Verifica fotocamera e sensori</button>
   <label class="tg"><input type="checkbox" id="optScare" checked> Jump scare</label>
   <label class="tg"><input type="checkbox" id="optCam" checked> Fotocamera in battaglia (AR)</label>
@@ -410,6 +418,7 @@ function closeModal(){$('#modal').classList.remove('on');}
 
 // ---------- avvio ----------
 async function begin(useDemo,cont){
+  goFull(false);keepAwake();
   S.scares=$('#optScare').checked;S.cam=$('#optCam').checked;
   audioInit();const camP=preAskCam();await requestSensors();demo=useDemo;
   const saved=cont?load():null;
@@ -424,6 +433,24 @@ async function begin(useDemo,cont){
   setTimeout(()=>{if(!sensorEvents)toast(inClaude?"Dentro l'app Claude giroscopio e bussola sono bloccati: usa i tasti ◀ ▶.":'Giroscopio non rilevato: usa i tasti ◀ ▶ per girarti.',5000);},2500);
   toast('Le ombre si risvegliano nei luoghi intorno a te...',4000);if(!cont)setTimeout(()=>toast('I tesori sono nascosti in parchi, chiese e monumenti reali. Ogni tesoro dà un frammento 🔑: con 3 puoi entrare nel covo del Divoratore.',6500),4500);
 }
+// ---------- schermo intero ----------
+const isApp=()=>matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+function goFull(explicit){
+  if(isApp())return;const d=document.documentElement;
+  if(fsEl()){if(explicit)(document.exitFullscreen||document.webkitExitFullscreen).call(document);return;}
+  const req=d.requestFullscreen||d.webkitRequestFullscreen;
+  if(!req){if(explicit)fullHint();return;}
+  try{const pr=req.call(d,{navigationUI:'hide'});if(pr&&pr.then)pr.then(()=>{try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}}).catch(()=>{if(explicit)fullHint();});}catch(e){if(explicit)fullHint();}
+}
+function fullHint(){showModal(`<h2>⛶ Schermo intero</h2><p>Su iPhone il browser non permette lo schermo intero alle pagine web. Per giocare a tutto schermo:</p><p>1. Tocca il pulsante Condividi in Safari<br>2. Scegli «Aggiungi alla schermata Home»<br>3. Apri il gioco dall'icona: partirà a tutto schermo.</p><button class="btn" data-close="1">Ho capito</button>`);}
+function fsLabel(){const on=!!fsEl()||isApp();$('#bFull').style.display=isApp()?'none':'';$('#bFull').textContent=tr(on?'⛶ Esci dallo schermo intero':'⛶ Schermo intero');}
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{fsLabel();setTimeout(()=>dispatchEvent(new Event('resize')),150);}));
+$('#bFull').onclick=()=>goFull(true);
+// schermo sempre acceso mentre si gioca
+let wakeLock=null;async function keepAwake(){try{if('wakeLock' in navigator&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null;});}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&mode!=='title')keepAwake();});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
 $('#bReal').onclick=()=>begin(false,false);
 $('#bDiag').onclick=runDiag;
 async function runDiag(){
@@ -450,8 +477,8 @@ async function runDiag(){
 }
 $('#bDemo').onclick=()=>begin(true,false);
 $('#bContinue').onclick=()=>begin(false,true);
-(function(){const s0=load();const nl=(navigator.language||'it').slice(0,2);S.lang=(s0&&s0.S&&s0.S.lang)||(['it','es','en'].includes(nl)?nl:'en');setLang(S.lang);
-  document.querySelectorAll('#langs button').forEach(b=>b.onclick=()=>{S.lang=b.dataset.lang;setLang(S.lang);save();});})();
+(function(){const s0=load();const nl=(navigator.language||'it').slice(0,2);S.lang=(s0&&s0.S&&s0.S.lang)||(['it','es','en'].includes(nl)?nl:'en');setLang(S.lang);fsLabel();
+  document.querySelectorAll('#langs button').forEach(b=>b.onclick=()=>{S.lang=b.dataset.lang;setLang(S.lang);fsLabel();save();});})();
 (function(){const s=load();if(s&&s.P){$('#bContinue').style.display='block';if(s.S){Object.assign(S,s.S);$('#optScare').checked=S.scares;$('#optCam').checked=S.cam;}}})();
 
 document.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;const on=e=>{e.preventDefault();keys[k]=true;},off=()=>{keys[k]=false;};b.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,off));});
@@ -950,7 +977,7 @@ function buy(id,o){
   P.coins-=it.p;sfx.coin();toast(it.ic+' Acquistato!');hud();save();openShop(o);
 }
 function openSettings(){
-  showModal(`<h2>⚙️ Impostazioni</h2><h3>Volume</h3><input type="range" id="vol" min="0" max="1" step=".05" value="${S.vol}"><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sScare" ${S.scares?'checked':''}> Jump scare</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sCam" ${S.cam?'checked':''}> Fotocamera in battaglia</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="s3d" ${S.gfx3d!==false?'checked':''}> Mostri in 3D realistico</label><p><small>Modalità: ${demo?'prova (tasti)':'GPS reale'} · Bussola: ${compassHeading!=null?'attiva':'non disponibile'} · Giroscopio: ${hasTilt?'attivo':'non disponibile'}</small></p><h3>Lingua</h3><div id="langs2" style="display:flex;gap:6px;flex-wrap:wrap"><button class="row" style="width:auto" data-setlang="it">🇮🇹 Italiano</button><button class="row" style="width:auto" data-setlang="es">🇪🇸 Español</button><button class="row" style="width:auto" data-setlang="en">🇬🇧 English</button></div><button class="btn alt" data-ask="1">🌑 Nuova partita</button><button class="btn" data-close="1">Chiudi</button>`);
+  showModal(`<h2>⚙️ Impostazioni</h2><h3>Volume</h3><input type="range" id="vol" min="0" max="1" step=".05" value="${S.vol}"><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sScare" ${S.scares?'checked':''}> Jump scare</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sCam" ${S.cam?'checked':''}> Fotocamera in battaglia</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="s3d" ${S.gfx3d!==false?'checked':''}> Mostri in 3D realistico</label><p><small>Modalità: ${demo?'prova (tasti)':'GPS reale'} · Bussola: ${compassHeading!=null?'attiva':'non disponibile'} · Giroscopio: ${hasTilt?'attivo':'non disponibile'}</small></p><h3>Lingua</h3><div id="langs2" style="display:flex;gap:6px;flex-wrap:wrap"><button class="row" style="width:auto" data-setlang="it">🇮🇹 Italiano</button><button class="row" style="width:auto" data-setlang="es">🇪🇸 Español</button><button class="row" style="width:auto" data-setlang="en">🇬🇧 English</button></div><button class="btn alt" data-full="1">⛶ Schermo intero</button><button class="btn alt" data-ask="1">🌑 Nuova partita</button><button class="btn" data-close="1">Chiudi</button>`);
   $('#vol').oninput=e=>{S.vol=+e.target.value;if(A.master)A.master.gain.value=S.vol;save();};
   $('#sScare').onchange=e=>{S.scares=e.target.checked;save();};$('#sCam').onchange=e=>{S.cam=e.target.checked;save();};$('#s3d').onchange=e=>{S.gfx3d=e.target.checked;save();};
 }
@@ -989,6 +1016,7 @@ $('#bMap').onclick=toggleMap;
 $('#bBag').onclick=openBag;$('#bSet').onclick=openSettings;$('#shopBtn').onclick=()=>{if(nearShop){sfx.shop();openShop(nearShop);}};
 $('#modal').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b){if(e.target.id==='modal'&&mode==='explore')closeModal();return;}
+  if(b.dataset.full){closeModal();goFull(true);return;}
   if(b.dataset.setlang){S.lang=b.dataset.setlang;setLang(S.lang);save();openSettings();return;}
   if(b.dataset.eq){P.weapon=b.dataset.eq;hud();save();openBag();}
   else if(b.dataset.use){const k=b.dataset.use;if(P.hp>=P.maxHp){toast('Sei già in piena salute');return;}P.items[k]--;P.hp=Math.min(P.maxHp,P.hp+ITEMS[k].heal);sfx.heal();hud();save();openBag();}

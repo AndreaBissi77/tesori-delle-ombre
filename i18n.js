@@ -170,6 +170,13 @@ window.I18N = [
 ['Annulla','Cancel','Cancelar'],
 ['Le ombre si spostano. Nuovi tesori ti aspettano.','The shadows shift. New treasures await you.','Las sombras se mueven. Nuevos tesoros te esperan.'],
 // impostazioni
+['⛶ Esci dallo schermo intero','⛶ Exit full screen','⛶ Salir de pantalla completa'],
+['⛶ Schermo intero','⛶ Full screen','⛶ Pantalla completa'],
+['Su iPhone il browser non permette lo schermo intero alle pagine web. Per giocare a tutto schermo:','On iPhone the browser does not allow web pages to go full screen. To play full screen:','En iPhone el navegador no permite la pantalla completa en páginas web. Para jugar a pantalla completa:'],
+['1. Tocca il pulsante Condividi in Safari','1. Tap the Share button in Safari','1. Toca el botón Compartir en Safari'],
+['2. Scegli «Aggiungi alla schermata Home»','2. Choose «Add to Home Screen»','2. Elige «Añadir a pantalla de inicio»'],
+["3. Apri il gioco dall'icona: partirà a tutto schermo.",'3. Open the game from the icon: it will start full screen.','3. Abre el juego desde el icono: se abrirá a pantalla completa.'],
+['Ho capito','Got it','Entendido'],
 ['⚙️ Impostazioni','⚙️ Settings','⚙️ Ajustes'],
 ['Fotocamera in battaglia','Camera in battle','Cámara en batalla'],
 ['Mostri in 3D realistico','Realistic 3D monsters','Monstruos en 3D realista'],
