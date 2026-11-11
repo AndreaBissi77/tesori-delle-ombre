@@ -6,6 +6,7 @@
 <title>Tesori delle Ombre</title>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js","three/addons/":"./lib/addons/"}}</script>
 <script type="module" src="./ar3d.js"></script>
+<script src="./i18n.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 html,body{height:100%;background:#050608;color:#e8e2d0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
@@ -65,6 +66,9 @@ label.tg{display:flex;gap:8px;align-items:center;justify-content:center;margin:6
 .row.sel{border-color:#e9c46a;background:#2a2312}
 .row small{opacity:.65}
 input[type=range]{width:100%}
+#langs{display:flex;gap:6px;justify-content:center;margin:2px auto 10px;flex-wrap:wrap}
+#langs button{min-height:44px;padding:0 12px;border-radius:22px;border:1px solid #333;background:#15171c;color:#ccc;font-size:.9rem}
+#langs button.sel{border-color:#e9c46a;color:#f3dfa8;background:#2a2312}
 #map{display:none;position:absolute;inset:6px 10px;border-radius:18px;overflow:hidden;border:1px solid #3a2d14}
 #map.on{display:block}
 .leaflet-container{background:#0b0a0f !important;font-family:inherit}
@@ -82,6 +86,7 @@ input[type=range]{width:100%}
   <button class="btn" id="bContinue" style="display:none">▶ Continua l'avventura</button>
   <button class="btn" id="bReal">🧭 Gioca con GPS e bussola</button>
   <button class="btn alt" id="bDemo">🎮 Modalità prova (cammina con i tasti)</button>
+  <div id="langs" role="group" aria-label="Lingua"><button data-lang="it">🇮🇹 Italiano</button><button data-lang="es">🇪🇸 Español</button><button data-lang="en">🇬🇧 English</button></div>
   <button class="btn alt" id="bDiag">🔧 Verifica fotocamera e sensori</button>
   <label class="tg"><input type="checkbox" id="optScare" checked> Jump scare</label>
   <label class="tg"><input type="checkbox" id="optCam" checked> Fotocamera in battaglia (AR)</label>
@@ -116,6 +121,16 @@ input[type=range]{width:100%}
 
 <script>
 "use strict";
+// ---------- lingue ----------
+let LANG='it',TRS=null;
+function buildTR(){const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  TRS=(window.I18N||[]).map(r=>{const short=r[0].length<10&&/^[A-Za-zÀ-ú' ]+$/.test(r[0]);return{it:r[0],en:r[1],es:r[2],short,re:short?new RegExp('(^|[\\s>(·,.!?/¡¿+])'+esc(r[0])+'(?![A-Za-zÀ-ú])','g'):null};}).sort((a,b)=>b.it.length-a.it.length);}
+function tr(x){if(LANG==='it'||x==null||!TRS)return x;let t=String(x);
+  for(const e of TRS){if(t.indexOf(e.it)<0)continue;const v=e[LANG];t=e.short?t.replace(e.re,(m,p)=>p+v):t.split(e.it).join(v);}return t;}
+function trDOM(root){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(n.parentNode&&/SCRIPT|STYLE/.test(n.parentNode.nodeName))continue;if(n.__it==null)n.__it=n.nodeValue;n.nodeValue=tr(n.__it);}}
+function setLang(l){LANG=['it','es','en'].includes(l)?l:'it';document.documentElement.lang=LANG;if(!TRS)buildTR();trDOM(document.body);
+  document.querySelectorAll('#langs button').forEach(b=>b.classList.toggle('sel',b.dataset.lang===LANG));document.title=tr('Tesori delle Ombre');}
+(()=>{const of=CanvasRenderingContext2D.prototype.fillText;CanvasRenderingContext2D.prototype.fillText=function(t,...a){return of.call(this,tr(t),...a);};})();
 // ---------- utilità ----------
 const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -126,7 +141,7 @@ function dist(a,b,c,d){const R=6371000,dLa=(c-a)*toR,dLo=(d-b)*toR;const x=Math.
 function bearing(a,b,c,d){const y=Math.sin((d-b)*toR)*Math.cos(c*toR);const x=Math.cos(a*toR)*Math.sin(c*toR)-Math.sin(a*toR)*Math.cos(c*toR)*Math.cos((d-b)*toR);return(Math.atan2(y,x)/toR+360)%360;}
 function offset(lat,lon,dx,dy){return[lat+dy/111320,lon+dx/(111320*Math.cos(lat*toR))];}
 function vibrate(p){try{navigator.vibrate&&navigator.vibrate(p);}catch(e){}}
-let toastT;function toast(m,ms=2400){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms);}
+let toastT;function toast(m,ms=2400){const t=$('#toast');t.textContent=tr(m);t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms);}
 const dpr=Math.min(2,window.devicePixelRatio||1);
 function fit(cv){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*dpr);cv.height=Math.max(1,r.height*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return{c,w:r.width,h:r.height};}
 
@@ -158,6 +173,7 @@ const PICK=[['monete',40],['pozione',18],['benda',18],['amuleto',8],['w:torcia',
 const WHISPERS=['Senti dei passi dietro di te...','Qualcosa ti sta osservando.','Un sussurro pronuncia il tuo nome.',"L'aria diventa gelida.","Hai visto un'ombra muoversi?",'Il silenzio è troppo profondo.'];
 const KEY='tesori_ombre_v1';
 const S={scares:true,cam:true,vol:.8};
+['#ttext','#mood','#bname','#ambText'].forEach(sel=>{const el=document.querySelector(sel);if(!el)return;new MutationObserver(()=>{if(LANG==='it'||el.__busy)return;const v=tr(el.textContent);if(v!==el.textContent){el.__busy=1;el.textContent=v;el.__busy=0;}}).observe(el,{childList:true,characterData:true,subtree:true});});
 function newPlayer(){return{hp:100,maxHp:100,coins:0,dmgMul:1,weapons:['pugnale'],weapon:'pugnale',items:{pozione:1,benda:1,elisir:0},found:0,shards:0,done:{},shops:{},lantern:false,firstBattle:true};}
 let P=newPlayer(),pos=null;
 let heading=0,viewH=0,arHeading=null,sensorEvents=0,camErr='',compassHeading=null,manualOffset=0,tilt=0,hasTilt=false,demo=false,mode='title';
@@ -388,7 +404,7 @@ function hud(){
   if(B)$('#mbar i').style.width=Math.max(0,B.hp/B.max*100)+'%';
 }
 function bestHeal(){for(const k of['pozione','benda','elisir'])if(P.items[k]>0)return k;return null;}
-function showModal(h){$('#mbox').innerHTML=h;$('#modal').classList.add('on');}
+function showModal(h){$('#mbox').innerHTML=tr(h);$('#modal').classList.add('on');}
 function closeModal(){$('#modal').classList.remove('on');}
 
 // ---------- avvio ----------
@@ -433,6 +449,8 @@ async function runDiag(){
 }
 $('#bDemo').onclick=()=>begin(true,false);
 $('#bContinue').onclick=()=>begin(false,true);
+(function(){const s0=load();const nl=(navigator.language||'it').slice(0,2);S.lang=(s0&&s0.S&&s0.S.lang)||(['it','es','en'].includes(nl)?nl:'en');setLang(S.lang);
+  document.querySelectorAll('#langs button').forEach(b=>b.onclick=()=>{S.lang=b.dataset.lang;setLang(S.lang);save();});})();
 (function(){const s=load();if(s&&s.P){$('#bContinue').style.display='block';if(s.S){Object.assign(S,s.S);$('#optScare').checked=S.scares;$('#optCam').checked=S.cam;}}})();
 
 document.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;const on=e=>{e.preventDefault();keys[k]=true;},off=()=>{keys[k]=false;};b.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,off));});
@@ -931,7 +949,7 @@ function buy(id,o){
   P.coins-=it.p;sfx.coin();toast(it.ic+' Acquistato!');hud();save();openShop(o);
 }
 function openSettings(){
-  showModal(`<h2>⚙️ Impostazioni</h2><h3>Volume</h3><input type="range" id="vol" min="0" max="1" step=".05" value="${S.vol}"><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sScare" ${S.scares?'checked':''}> Jump scare</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sCam" ${S.cam?'checked':''}> Fotocamera in battaglia</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="s3d" ${S.gfx3d!==false?'checked':''}> Mostri in 3D realistico</label><p><small>Modalità: ${demo?'prova (tasti)':'GPS reale'} · Bussola: ${compassHeading!=null?'attiva':'non disponibile'} · Giroscopio: ${hasTilt?'attivo':'non disponibile'}</small></p><button class="btn alt" data-ask="1">🌑 Nuova partita</button><button class="btn" data-close="1">Chiudi</button>`);
+  showModal(`<h2>⚙️ Impostazioni</h2><h3>Volume</h3><input type="range" id="vol" min="0" max="1" step=".05" value="${S.vol}"><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sScare" ${S.scares?'checked':''}> Jump scare</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="sCam" ${S.cam?'checked':''}> Fotocamera in battaglia</label><label class="tg" style="justify-content:flex-start"><input type="checkbox" id="s3d" ${S.gfx3d!==false?'checked':''}> Mostri in 3D realistico</label><p><small>Modalità: ${demo?'prova (tasti)':'GPS reale'} · Bussola: ${compassHeading!=null?'attiva':'non disponibile'} · Giroscopio: ${hasTilt?'attivo':'non disponibile'}</small></p><h3>Lingua</h3><div id="langs2" style="display:flex;gap:6px;flex-wrap:wrap"><button class="row" style="width:auto" data-setlang="it">🇮🇹 Italiano</button><button class="row" style="width:auto" data-setlang="es">🇪🇸 Español</button><button class="row" style="width:auto" data-setlang="en">🇬🇧 English</button></div><button class="btn alt" data-ask="1">🌑 Nuova partita</button><button class="btn" data-close="1">Chiudi</button>`);
   $('#vol').oninput=e=>{S.vol=+e.target.value;if(A.master)A.master.gain.value=S.vol;save();};
   $('#sScare').onchange=e=>{S.scares=e.target.checked;save();};$('#sCam').onchange=e=>{S.cam=e.target.checked;save();};$('#s3d').onchange=e=>{S.gfx3d=e.target.checked;save();};
 }
@@ -969,6 +987,7 @@ $('#bMap').onclick=toggleMap;
 $('#bBag').onclick=openBag;$('#bSet').onclick=openSettings;$('#shopBtn').onclick=()=>{if(nearShop){sfx.shop();openShop(nearShop);}};
 $('#modal').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b){if(e.target.id==='modal'&&mode==='explore')closeModal();return;}
+  if(b.dataset.setlang){S.lang=b.dataset.setlang;setLang(S.lang);save();openSettings();return;}
   if(b.dataset.eq){P.weapon=b.dataset.eq;hud();save();openBag();}
   else if(b.dataset.use){const k=b.dataset.use;if(P.hp>=P.maxHp){toast('Sei già in piena salute');return;}P.items[k]--;P.hp=Math.min(P.maxHp,P.hp+ITEMS[k].heal);sfx.heal();hud();save();openBag();}
   else if(b.dataset.buy){buy(b.dataset.buy,W.objs.find(o=>o.id==b.dataset.shop));}
