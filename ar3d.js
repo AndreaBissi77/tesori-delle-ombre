@@ -14,7 +14,8 @@ const PAL = { ink: 0x0B0A0F, bone: 0xE8DCC4, ember: 0xD9A441, blood: 0xB3202A, s
   slate: 0x2A3346, moon: 0xCFE0FF, earth: 0x2A1E18, sky: 0x6C7FA6 };
 const D2R = Math.PI / 180;
 const GROUND_Y = -1.45;      // il telefono è tenuto a ~1,45 m dal suolo
-const DIST = 3.6;            // distanza del mostro dalla camera (m)
+const DIST = 3.6;
+const SC = 0.8;              // scala dei mostri: un po' più piccoli per lasciare spazio sullo schermo            // distanza del mostro dalla camera (m)
 
 // ---------------------------------------------------------------- rumore
 const perm = new Uint8Array(512);
@@ -528,11 +529,11 @@ export const AR3D = {
     if (M.dying > 0) { if (!M.dieT) M.dieT = t; M.dying = (t - M.dieT) / 1.3 + .0001; M.u.dissolve.value = Math.min(1, M.dying); }
     M.u.flash.value = Math.max(0, M.u.flash.value - dt * 4);
     M.update(t, dt, { wind: o.wind || near > .5 ? 1 : 0, lunge: Math.max(o.lunge || 0, near), phase: o.phase || 1, camera: R.camera });
-    M.root.scale.setScalar(1 - M.recoil * .04);
+    M.root.scale.setScalar(SC * (1 - M.recoil * .04));
     // luci che seguono il mostro
     const mp = M.root.position; R.key.position.set(mp.x - 3 * dz - 1.5 * dx, 7, mp.z + 3 * dx - 1.5 * dz); R.key.target.position.copy(mp);
     R.back.position.set(mp.x + dx * 6, 3, mp.z + dz * 6); R.back.target.position.copy(mp);
-    R.blob.position.set(mp.x, GROUND_Y + .003, mp.z); const bs = M.radius * 2.6 * (1 - Math.min(1, M.hover / 6)); R.blob.scale.set(bs, bs, 1); R.blob.material.opacity = (1 - M.u.dissolve.value) * (M.hover > 1 ? .55 : .9);
+    R.blob.position.set(mp.x, GROUND_Y + .003, mp.z); const bs = M.radius * SC * 2.6 * (1 - Math.min(1, M.hover / 6)); R.blob.scale.set(bs, bs, 1); R.blob.material.opacity = (1 - M.u.dissolve.value) * (M.hover > 1 ? .55 : .9);
     R.ground.position.set(mp.x, GROUND_Y, mp.z);
     // effetto "fuori dalla cornice": il terreno resta dentro la cornice, il mostro la oltrepassa
     const r = R.renderer, ins = R.inset;
@@ -546,7 +547,7 @@ export const AR3D = {
     v3.set(0, M.center + (M.body.position.y || 0) * 0, 0); M.root.localToWorld(v3); const world = v3.clone();
     const camSpace = world.clone().applyMatrix4(R.camera.matrixWorldInverse); const ahead = camSpace.z < 0;
     v3.project(R.camera); const sx = (v3.x * .5 + .5) * w, sy = (-v3.y * .5 + .5) * h;
-    const edge = world.clone().add(new THREE.Vector3(0, M.radius, 0)).project(R.camera); const size = Math.abs(((-edge.y * .5 + .5) * h) - sy) * 2;
+    const edge = world.clone().add(new THREE.Vector3(0, M.radius * SC, 0)).project(R.camera); const size = Math.abs(((-edge.y * .5 + .5) * h) - sy) * 2;
     return { x: sx, y: sy, size, ahead, rel: Math.atan2(camSpace.x, -camSpace.z) / D2R, up: Math.atan2(camSpace.y, -camSpace.z) / D2R };
   },
   hitTest(px, py) {
